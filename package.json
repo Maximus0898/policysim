@@ -1,0 +1,19 @@
+{
+  "name": "policysim",
+  "version": "1.0.0",
+  "description": "Multi-agent policy simulation platform",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npx pnpm --filter frontend dev\" \"cd backend && python main.py\"",
+    "dev:frontend": "npx pnpm --filter frontend dev",
+    "dev:backend": "cd backend && python main.py"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

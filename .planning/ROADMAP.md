@@ -4,17 +4,17 @@
 PolicySim will be built starting with a robust asynchronous Python backend that orchestrates LLM-driven agent simulations, followed by a data-rich SvelteKit frontend that visualizes the population response in real-time via SSE and D3 network graphs.
 
 ## Phases
-- [ ] **Phase 1: Foundation** - Technical environment and multi-provider LLM infrastructure.
-- [ ] **Phase 2: Database & Modeling** - Persistent schema for worlds, agents, and rounds.
-- [ ] **Phase 3: LLM Adapters** - Production-ready adapters for Anthropic, OpenAI, and Ollama.
-- [ ] **Phase 4: World Builder** - Policy document extraction and archetype agent generation.
-- [ ] **Phase 5: Simulation Core (v1)** - Round-based runner engine with state transitions.
-- [ ] **Phase 6: Simulation Logic (v2)** - Advanced agent decisions and group update logic.
-- [ ] **Phase-7: Real-time Streaming** - FastAPI SSE and background simulation orchestration.
-- [ ] **Phase 8: Frontend Dashboard** - SvelteKit interface with metrics timeline charts.
-- [ ] **Phase 9: Network Graph** - Interactive D3-force viz for agent stance tracking.
-- [ ] **Phase 10: God-Mode Controls** - Interactive event injection and narrative overrides.
-- [ ] **Phase 11: Prediction Reporting** - Prediction brief synthesis and WeasyPrint PDF export.
+- [x] **Phase 1: Foundation** - Technical environment and multi-provider LLM infrastructure.
+- [x] **Phase 2: Database & Modeling** - Persistent schema for worlds, agents, and rounds.
+- [x] **Phase 3: LLM Adapters** - Production-ready adapters for Anthropic, OpenAI, and Ollama.
+- [x] **Phase 4: World Builder** - Policy document extraction and archetype agent generation.
+- [x] **Phase 5: Simulation Core (v1)** - Round-based runner engine with state transitions.
+- [x] **Phase 6: Simulation Logic (v2)** - Advanced agent decisions and group update logic.
+- [x] **Phase 7: Real-time Streaming** - FastAPI SSE and background simulation orchestration.
+- [x] **Phase 8: Frontend Dashboard** - SvelteKit interface with metrics timeline charts.
+- [x] **Phase 9: Network Graph** - Interactive D3-force viz for agent stance tracking.
+- [x] **Phase 10: God-Mode Controls** - Interactive event injection and narrative overrides.
+- [x] **Phase 11: Prediction Reporting** - Prediction brief synthesis and WeasyPrint PDF export.
 - [ ] **Phase 12: Historical Backtesting** - Historical calibration datasets and accuracy scoring.
 
 ## Phase Details
@@ -143,17 +143,17 @@ PolicySim will be built starting with a robust asynchronous Python backend that 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/1 | Not started | - |
-| 2. Database & Modeling | 0/1 | Not started | - |
-| 3. LLM Adapters | 0/1 | Not started | - |
-| 4. World Builder | 0/1 | Not started | - |
-| 5. Simulation Core (v1) | 0/1 | Not started | - |
-| 6. Simulation Logic (v2) | 0/1 | Not started | - |
-| 7. Real-time Streaming | 0/1 | Not started | - |
-| 8. Frontend Dashboard | 0/2 | Not started | - |
-| 9. Network Graph | 0/1 | Not started | - |
-| 10. God-Mode Controls | 0/1 | Not started | - |
-| 11. Prediction Reporting | 0/2 | Not started | - |
+| 1. Foundation | 1/1 | Completed | 2026-04-06 |
+| 2. Database & Modeling | 1/1 | Completed | 2026-04-06 |
+| 3. LLM Adapters | 1/1 | Completed | 2026-04-06 |
+| 4. World Builder | 1/1 | Completed | 2026-04-06 |
+| 5. Simulation Core (v1) | 1/1 | Completed | 2026-04-06 |
+| 6. Simulation Logic (v2) | 1/1 | Completed | 2026-04-06 |
+| 7. Real-time Streaming | 1/1 | Completed | 2026-04-07 |
+| 8. Frontend Dashboard | 2/2 | Completed | 2026-04-08 |
+| 9. Network Graph | 1/1 | Completed | 2026-04-08 |
+| 10. God-Mode Controls | 1/1 | Completed | 2026-04-08 |
+| 11. Prediction Reporting | 1/1 | Completed | 2026-04-08 |
 | 12. Historical Backtesting | 0/1 | Not started | - |
 
 ---
