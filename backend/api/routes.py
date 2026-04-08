@@ -1,14 +1,17 @@
 import json
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sse_starlette.sse import EventSourceResponse
+
 
 from backend.database import get_session, engine
 from backend.models import Simulation, Agent, AgentRelationship, AgentRoundResult, Round
 from backend.engine.builder import WorldBuilder
 from backend.llm.factory import get_provider
 from backend.api.simulation_manager import simulation_manager
+from backend.services.reporting_service import ReportingService
+
 
 from pydantic import BaseModel
 
@@ -147,25 +150,28 @@ async def get_simulation_relationships(simulation_id: int, session: AsyncSession
     ]
 
 
-@router.get("/{simulation_id}/agents/{agent_id}/results")
-async def get_agent_round_results(simulation_id: int, agent_id: int, session: AsyncSession = Depends(get_session)):
-    """Returns last 5 round results for a specific agent (for the detail panel)."""
-    result = await session.execute(
-        select(AgentRoundResult, Round.round_number)
-        .join(Round)
-        .where(
-            AgentRoundResult.agent_id == agent_id,
-            Round.simulation_id == simulation_id
-        )
-        .order_by(Round.round_number.desc())
-        .limit(5)
+@router.get("/{simulation_id}/report/heatmap")
+async def get_heatmap(simulation_id: int, session: AsyncSession = Depends(get_session)):
+    """Returns aggregated sentiment data for the demographic heatmap."""
+    service = ReportingService(session)
+    data = await service.get_heatmap_data(simulation_id)
+    return data
+
+@router.post("/{simulation_id}/report/summary")
+async def generate_summary(simulation_id: int, session: AsyncSession = Depends(get_session)):
+    """Manually triggers LLM synthesis of the simulation executive brief."""
+    service = ReportingService(session)
+    summary = await service.synthesize_executive_brief(simulation_id)
+    return {"summary": summary}
+
+@router.get("/{simulation_id}/report/pdf")
+async def download_pdf(simulation_id: int, session: AsyncSession = Depends(get_session)):
+    """Generates and returns the professional PDF prediction brief."""
+    service = ReportingService(session)
+    pdf_bytes = await service.generate_pdf(simulation_id)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=policy_brief_{simulation_id}.pdf"}
     )
-    rows = result.all()
-    return [
-        {
-            "round_number": r_num,
-            "stance_value": r.stance_value,
-            "sentiment": r.sentiment,
-        }
-        for r, r_num in rows
-    ]
+

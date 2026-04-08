@@ -2,6 +2,8 @@
 	import { env } from '$env/dynamic/public';
 	import ForceGraph from '$lib/components/ForceGraph.svelte';
 	import AgentPanel from '$lib/components/AgentPanel.svelte';
+	import SentimentHeatmap from '$lib/components/SentimentHeatmap.svelte';
+
 	import type { AgentNode, AgentLink } from '$lib/components/ForceGraph.svelte';
 
 	// --- Types ---
@@ -36,13 +38,19 @@ Key provisions:
 	let roundLogs = $state<RoundUpdate[]>([]);
 	let isStreaming = $state(false);
 
-	// Network graph state
-	let activeTab = $state<'log' | 'graph'>('log');
+	// Network graph & Reporting state
+	let activeTab = $state<'log' | 'graph' | 'report'>('log');
+
 	let graphNodes = $state<AgentNode[]>([]);
 	let graphLinks = $state<AgentLink[]>([]);
 	let selectedAgentId = $state<number | null>(null);
 	let injectionText = $state('');
 	let isInjecting = $state(false);
+
+	let heatmapData = $state<{ archetype: string, values: number[] }[]>([]);
+	let briefSummary = $state<string | null>(null);
+	let isGeneratingReport = $state(false);
+
 
 
 	const API_URL = env.PUBLIC_API_URL || 'http://localhost:8000';
@@ -190,6 +198,39 @@ Key provisions:
 		} finally {
 			isInjecting = false;
 		}
+	}
+
+	async function handleGenerateBrief() {
+		if (!simId) return;
+		isGeneratingReport = true;
+		try {
+			const res = await fetch(`${API_URL}/api/simulations/${simId}/report/summary`, { method: 'POST' });
+			if (res.ok) {
+				const data = await res.json();
+				briefSummary = data.summary;
+			}
+		} catch (e) {
+			console.error(e);
+		} finally {
+			isGeneratingReport = false;
+		}
+	}
+
+	async function fetchReportData() {
+		if (!simId) return;
+		try {
+			const res = await fetch(`${API_URL}/api/simulations/${simId}/report/heatmap`);
+			if (res.ok) {
+				heatmapData = await res.json();
+			}
+		} catch (e) {
+			console.error(e);
+		}
+	}
+
+	function handleDownloadPDF() {
+		if (!simId) return;
+		window.open(`${API_URL}/api/simulations/${simId}/report/pdf`, '_blank');
 	}
 
 	function resetAll() {
@@ -403,11 +444,11 @@ Key provisions:
 					📋 Round Log
 				</button>
 				<button
-					onclick={() => activeTab = 'graph'}
+					onclick={() => { activeTab = 'report'; fetchReportData(); }}
 					class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all"
-					style="background: {activeTab === 'graph' ? 'rgba(0,242,254,0.1)' : 'transparent'}; color: {activeTab === 'graph' ? '#00f2fe' : 'rgba(255,255,255,0.4)'};"
+					style="background: {activeTab === 'report' ? 'rgba(81, 207, 102, 0.1)' : 'transparent'}; color: {activeTab === 'report' ? '#51cf66' : 'rgba(255,255,255,0.4)'};"
 				>
-					🕸️ Agent Network
+					📊 Prediction Report
 				</button>
 			</div>
 		{/if}
@@ -465,25 +506,81 @@ Key provisions:
 				</div>
 			{/if}
 
-		<!-- Agent Network Tab -->
-		{:else if activeTab === 'graph'}
-			<div class="glass-card p-4">
-				{#if graphNodes.length > 0}
-					<div class="flex items-center justify-between mb-4">
-						<p class="text-xs uppercase tracking-widest font-semibold" style="color: rgba(255,255,255,0.4);">
-							Live Influence Network
-						</p>
-						<span class="text-[10px] px-2 py-1 rounded-full" style="background: rgba(0,242,254,0.1); color: #00f2fe; border: 1px solid rgba(0,242,254,0.2);">
-							{graphNodes.length} agents · {graphLinks.length} links
-						</span>
+		<!-- Prediction Report Tab -->
+		{:else if activeTab === 'report'}
+			<div class="space-y-6">
+				<!-- Executive Brief Section -->
+				<div class="glass-card p-6">
+					<div class="flex items-center justify-between mb-6">
+						<div class="flex items-center gap-2">
+							<span class="text-xl">📄</span>
+							<h3 class="text-xs font-bold uppercase tracking-widest" style="color: #51cf66;">Executive Prediction Brief</h3>
+						</div>
+						
+						{#if briefSummary}
+							<button 
+								onclick={handleDownloadPDF}
+								class="px-4 py-2 rounded-lg text-xs font-bold border border-white/10 hover:bg-white/5 transition-all flex items-center gap-2"
+							>
+								📥 Download PDF Report
+							</button>
+						{/if}
 					</div>
-					<ForceGraph nodes={graphNodes} links={graphLinks} bind:selectedAgentId />
-				{:else}
-					<div class="py-16 text-center">
-						<span class="text-4xl">🕸️</span>
-						<p class="mt-4 text-sm" style="color: rgba(255,255,255,0.3);">Network graph will load after simulation starts.</p>
+
+					{#if briefSummary}
+						<div class="prose prose-sm prose-invert max-w-none">
+							{#each briefSummary.split('\n\n') as paragraph}
+								<p class="text-sm leading-relaxed text-white/80 mb-4">{paragraph}</p>
+							{/each}
+						</div>
+					{:else}
+						<div class="py-12 text-center">
+							<p class="text-sm text-white/40 mb-6">Simulation concluded. Analysis ready for synthesis.</p>
+							<button 
+								onclick={handleGenerateBrief}
+								disabled={isGeneratingReport}
+								class="px-8 py-3 rounded-xl bg-brand font-bold text-black uppercase tracking-widest text-xs hover:scale-105 transition-all disabled:opacity-50"
+							>
+								{isGeneratingReport ? 'Synthesizing...' : '🪄 Generate Executive Brief'}
+							</button>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Demographic Heatmap Section -->
+				<div class="glass-card p-6">
+					<div class="flex items-center gap-2 mb-8">
+						<span class="text-xl">🔥</span>
+						<h3 class="text-xs font-bold uppercase tracking-widest text-white/40">Demographic Sentiment Trajectory</h3>
 					</div>
-				{/if}
+					
+					<SentimentHeatmap data={heatmapData} />
+				</div>
+
+				<!-- Key Figures Spotlight -->
+				<div class="glass-card p-6">
+					<div class="flex items-center gap-2 mb-6">
+						<span class="text-xl">🌟</span>
+						<h3 class="text-xs font-bold uppercase tracking-widest text-white/40">Key Figure Final Stances</h3>
+					</div>
+					
+					<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+						{#each graphNodes.filter(n => n.is_key_figure) as figure}
+							<div class="p-4 rounded-xl border border-white/5" style="background: rgba(255,255,255,0.02);">
+								<p class="text-xs font-bold text-white mb-1">{figure.name}</p>
+								<p class="text-[10px] text-white/30 uppercase mb-3">{figure.archetype}</p>
+								<div class="flex items-center gap-2">
+									<div class="flex-1 h-1.5 rounded-full overflow-hidden bg-white/5">
+										<div class="h-full" style="width: {((figure.current_stance + 1) / 2) * 100}%; background: {figure.current_stance < 0 ? '#ff4747' : '#00f2fe'};"></div>
+									</div>
+									<span class="text-[10px] font-mono {figure.current_stance < 0 ? 'text-[#ff4747]' : 'text-[#00f2fe]'}">
+										{(figure.current_stance * 100).toFixed(0)}%
+									</span>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
 			</div>
 		{/if}
 	</div>
