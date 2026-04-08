@@ -45,6 +45,7 @@ class MassBatchResponse(BaseModel):
 class RoundSynthesis(BaseModel):
     narrative_summary: str = Field(description="A 2-3 paragraph news-style summary of the round's events.")
     key_events: List[str] = Field(description="3-5 bullet points of the most critical shifts or actions.")
+    avg_sentiment: float = Field(default=0.0, description="The average stance/sentiment of the population in this round (-1.0 to 1.0).")
 
 
 # --- Phase 9: Network Graph Schemas ---

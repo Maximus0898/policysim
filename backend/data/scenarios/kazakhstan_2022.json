@@ -1,0 +1,39 @@
+{
+    "id": "kazakhstan_2022",
+    "title": "Bloody January (Kazakhstan 2022)",
+    "description": "Removal of price caps on liquefied petroleum gas (LPG) leads to nationwide unrest and government resignation.",
+    "policy_text": "The Ministry of Energy hereby removes subsidies on liquefied petroleum gas (LPG). Starting January 1st, prices will be determined by electronic trading platforms, effectively doubling the price from 60 tenge to 120 tenge per liter in Almaty and Mangystau regions.",
+    "region_preset": "kz",
+    "historical_markers": [
+        {
+            "round": 1,
+            "sentiment": 0.2,
+            "events": ["Initial localized labor protests in Zhanaozen."],
+            "outcomes": {
+                "protest_happened": true,
+                "government_responded": false,
+                "policy_reversed": false
+            }
+        },
+        {
+            "round": 3,
+            "sentiment": -0.4,
+            "events": ["Protests spread to regional capitals. Public anger intensifies over economic inequality."],
+            "outcomes": {
+                "protest_happened": true,
+                "government_responded": true,
+                "policy_reversed": false
+            }
+        },
+        {
+            "round": 5,
+            "sentiment": -0.8,
+            "events": ["Mass unrest in Almaty. Government building storming. President Tokayev dismisses the cabinet and requests CSTO assistance."],
+            "outcomes": {
+                "protest_happened": true,
+                "government_responded": true,
+                "policy_reversed": true
+            }
+        }
+    ]
+}

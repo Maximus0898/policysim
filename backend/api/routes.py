@@ -11,6 +11,8 @@ from backend.engine.builder import WorldBuilder
 from backend.llm.factory import get_provider
 from backend.api.simulation_manager import simulation_manager
 from backend.services.reporting_service import ReportingService
+from backend.engine.backtester import Backtester
+
 
 
 from pydantic import BaseModel
@@ -75,6 +77,63 @@ async def create_draft_simulation(req: DraftSimulationRequest, session: AsyncSes
     await session.commit()
     
     return {"simulation_id": sim.id, "status": "draft_created", "agent_count": len(db_agents), "relationship_count": len(relationships)}
+
+
+@router.post("/backtest/{scenario_id}")
+async def create_backtest_simulation(scenario_id: str, session: AsyncSession = Depends(get_session)):
+    """Creates a simulation pre-configured with historical scenario data."""
+    import os
+    path = f"backend/data/scenarios/{scenario_id}.json"
+    if not os.path.exists(path):
+        return {"error": "Scenario not found"}, 404
+        
+    with open(path, "r", encoding="utf-8") as f:
+        scenario = json.load(f)
+    
+    from backend.regions.base import get_region
+    region = get_region(scenario["region_preset"])
+    
+    provider = get_provider()
+    builder = WorldBuilder(provider)
+    
+    # We use the historical policy text and region
+    sim, agents, relationships = await builder.draft_simulation(
+        title=scenario["title"],
+        document_text=scenario["policy_text"],
+        region_preset=region.code
+    )
+    
+    # Flag as backtest in scenario description
+    sim.scenario_description = f"BACKTEST:{scenario_id}"
+    
+    session.add(sim)
+    await session.commit()
+    await session.refresh(sim)
+    
+    # Save agents & relationships (standard flow)
+    agent_name_map = {}
+    for agent in agents:
+        agent.simulation_id = sim.id
+        session.add(agent)
+    await session.commit()
+    
+    # Refresh to get IDs for relationships
+    res = await session.execute(select(Agent).where(Agent.simulation_id == sim.id))
+    db_agents = res.scalars().all()
+    for a in db_agents: agent_name_map[a.name] = a.id
+    
+    for rel in relationships:
+        s_id = agent_name_map.get(rel.source_name)
+        t_id = agent_name_map.get(rel.target_name)
+        if s_id and t_id:
+            session.add(AgentRelationship(
+                simulation_id=sim.id, source_agent_id=s_id, target_agent_id=t_id,
+                relationship_type=rel.relationship_type, strength=rel.strength
+            ))
+    await session.commit()
+    
+    return {"simulation_id": sim.id, "status": "backtest_draft_created", "scenario_id": scenario_id}
+
 
 
 @router.post("/{simulation_id}/start")
@@ -150,7 +209,22 @@ async def get_simulation_relationships(simulation_id: int, session: AsyncSession
     ]
 
 
+@router.get("/{simulation_id}/backtest")
+async def get_backtest_results(simulation_id: int, session: AsyncSession = Depends(get_session)):
+    """Triggers the calibration engine to evaluate simulation accuracy against history."""
+    result = await session.execute(select(Simulation).where(Simulation.id == simulation_id))
+    sim = result.scalar_one_or_none()
+    if not sim or not sim.scenario_description or not sim.scenario_description.startswith("BACKTEST:"):
+        return {"error": "Not a backtest simulation or not found."}, 400
+        
+    scenario_id = sim.scenario_description.split(":")[1]
+    tester = Backtester(session)
+    analysis = await tester.assess_historical_fit(simulation_id, scenario_id)
+    return analysis
+
+
 @router.get("/{simulation_id}/report/heatmap")
+
 async def get_heatmap(simulation_id: int, session: AsyncSession = Depends(get_session)):
     """Returns aggregated sentiment data for the demographic heatmap."""
     service = ReportingService(session)

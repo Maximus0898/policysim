@@ -3,6 +3,8 @@
 	import ForceGraph from '$lib/components/ForceGraph.svelte';
 	import AgentPanel from '$lib/components/AgentPanel.svelte';
 	import SentimentHeatmap from '$lib/components/SentimentHeatmap.svelte';
+	import BacktestReport from '$lib/components/BacktestReport.svelte';
+
 
 	import type { AgentNode, AgentLink } from '$lib/components/ForceGraph.svelte';
 
@@ -50,15 +52,36 @@ Key provisions:
 	let heatmapData = $state<{ archetype: string, values: number[] }[]>([]);
 	let briefSummary = $state<string | null>(null);
 	let isGeneratingReport = $state(false);
+	let backtestAnalysis = $state<any>(null);
+	let isBacktest = $state(false);
+
 
 
 
 	const API_URL = env.PUBLIC_API_URL || 'http://localhost:8000';
 
 	// --- Actions ---
+	async function handleLaunchBacktest(scenarioId: string) {
+		phase = 'drafting';
+		error = null;
+		isBacktest = true;
+		try {
+			const res = await fetch(`${API_URL}/api/simulations/backtest/${scenarioId}`, { method: 'POST' });
+			if (!res.ok) throw new Error('Failed to launch backtest');
+			const data = await res.json();
+			simId = data.simulation_id;
+			await handleStartSimulation();
+		} catch (e: any) {
+			error = e.message;
+			phase = 'error';
+		}
+	}
+
 	async function handleCreateSimulation() {
 		phase = 'drafting';
 		error = null;
+		isBacktest = false;
+
 		roundLogs = [];
 		graphNodes = [];
 		graphLinks = [];
@@ -153,7 +176,11 @@ Key provisions:
 					phase = data.type === 'completion' ? 'done' : 'error';
 					isStreaming = false;
 					sse.close();
+					if (data.type === 'completion' && isBacktest) {
+						fetchBacktestResults();
+					}
 				}
+
 			} catch (e) {
 				console.error('SSE parse error:', e);
 			}
@@ -216,9 +243,23 @@ Key provisions:
 		}
 	}
 
-	async function fetchReportData() {
+	async function fetchBacktestResults() {
 		if (!simId) return;
 		try {
+			const res = await fetch(`${API_URL}/api/simulations/${simId}/backtest`);
+			if (res.ok) {
+				backtestAnalysis = await res.json();
+			}
+		} catch (e) {
+			console.error(e);
+		}
+	}
+
+	async function fetchReportData() {
+		if (!simId) return;
+		if (isBacktest && !backtestAnalysis) fetchBacktestResults();
+		try {
+
 			const res = await fetch(`${API_URL}/api/simulations/${simId}/report/heatmap`);
 			if (res.ok) {
 				heatmapData = await res.json();
@@ -242,7 +283,10 @@ Key provisions:
 		graphNodes = [];
 		graphLinks = [];
 		selectedAgentId = null;
+		isBacktest = false;
+		backtestAnalysis = null;
 	}
+
 
 	const regionOptions = [
 		{ value: 'uz', label: '🇺🇿 Uzbekistan' },
@@ -270,8 +314,24 @@ Key provisions:
 	<p class="text-lg max-w-xl mx-auto leading-relaxed" style="color: rgba(255,255,255,0.5);">
 		Simulate how 40 demographically-diverse agents respond to your policy across multiple rounds of social interaction.
 	</p>
+
+	<!-- Backtest Scenario Discovery -->
+	<div class="mt-12 flex justify-center gap-4">
+		<button 
+			onclick={() => handleLaunchBacktest('kazakhstan_2022')}
+			class="glass text-left p-4 rounded-2xl border border-white/5 hover:border-brand/30 hover:bg-brand/5 transition-all group max-w-[300px]"
+		>
+			<div class="flex items-center justify-between mb-2">
+				<span class="text-xs font-bold uppercase tracking-widest text-[#51cf66]">Model Calibration</span>
+				<span class="text-lg group-hover:translate-x-1 transition-transform">→</span>
+			</div>
+			<p class="text-sm font-semibold mb-1">Bloody January 2022</p>
+			<p class="text-[11px] text-white/40 leading-relaxed">Backtest the engine against the fuel price removal crisis in Kazakhstan.</p>
+		</button>
+	</div>
 </section>
 {/if}
+
 
 <!-- Main Interface -->
 <div class="grid grid-cols-1 xl:grid-cols-5 gap-8 items-start">
@@ -509,7 +569,19 @@ Key provisions:
 		<!-- Prediction Report Tab -->
 		{:else if activeTab === 'report'}
 			<div class="space-y-6">
+				<!-- Historical Comparison (If Backtest) -->
+				{#if isBacktest}
+					<div class="glass-card p-6 border-brand/20">
+						<div class="flex items-center gap-2 mb-8">
+							<span class="text-xl">⚖️</span>
+							<h3 class="text-xs font-bold uppercase tracking-widest text-brand">Historical Calibration Audit</h3>
+						</div>
+						<BacktestReport analysis={backtestAnalysis} />
+					</div>
+				{/if}
+
 				<!-- Executive Brief Section -->
+
 				<div class="glass-card p-6">
 					<div class="flex items-center justify-between mb-6">
 						<div class="flex items-center gap-2">
