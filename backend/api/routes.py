@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request, Response, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sse_starlette.sse import EventSourceResponse
@@ -223,13 +223,78 @@ async def get_backtest_results(simulation_id: int, session: AsyncSession = Depen
     return analysis
 
 
-@router.get("/{simulation_id}/report/heatmap")
+@router.post("/ingest")
+async def ingest_document(file: UploadFile = File(...)):
+    """Extracts plain text from uploaded PDF or DOCX files."""
+    from backend.engine.parsers import extract_text_from_file
+    content = await file.read()
+    text = extract_text_from_file(content, file.filename)
+    if not text:
+        return {"error": "Unsupported file type or failed to parse."}, 400
+    return {"text": text, "filename": file.filename}
 
+
+@router.get("/{simulation_id}/export")
+async def export_simulation_data(simulation_id: int, session: AsyncSession = Depends(get_session)):
+    """Returns the full raw simulation record including all rounds and agent results."""
+    result = await session.execute(
+        select(Simulation).where(Simulation.id == simulation_id)
+    )
+    sim = result.scalar_one_or_none()
+    if not sim:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+        
+    rounds_res = await session.execute(
+        select(Round).where(Round.simulation_id == simulation_id).order_by(Round.round_number)
+    )
+    rounds = rounds_res.scalars().all()
+    
+    agents_res = await session.execute(
+        select(Agent).where(Agent.simulation_id == simulation_id)
+    )
+    agents = agents_res.scalars().all()
+    
+    # Simple serialization into a big dict
+    data = {
+        "simulation": {
+            "id": sim.id,
+            "title": sim.title,
+            "policy": sim.policy_document_text,
+            "region": sim.region_preset,
+            "summary": sim.scenario_description
+        },
+        "agents": [
+            {"id": a.id, "name": a.name, "archetype": a.archetype, "initial_stance": a.political_lean}
+            for a in agents
+        ],
+        "rounds": [
+            {
+                "number": r.round_number,
+                "event": r.event_text,
+                "synthesis": json.loads(r.synthesis_text)
+            }
+            for r in rounds
+        ]
+    }
+    
+    return data
+
+
+@router.get("/{simulation_id}/report/heatmap")
 async def get_heatmap(simulation_id: int, session: AsyncSession = Depends(get_session)):
     """Returns aggregated sentiment data for the demographic heatmap."""
     service = ReportingService(session)
     data = await service.get_heatmap_data(simulation_id)
     return data
+
+
+@router.get("/{simulation_id}/report/coalitions")
+async def get_coalitions(simulation_id: int, session: AsyncSession = Depends(get_session)):
+    """Clusters demographics into emerging blocs and opposition coalitions."""
+    service = ReportingService(session)
+    data = await service.get_coalitions(simulation_id)
+    return data
+
 
 @router.post("/{simulation_id}/report/summary")
 async def generate_summary(simulation_id: int, session: AsyncSession = Depends(get_session)):

@@ -4,6 +4,9 @@
 	import AgentPanel from '$lib/components/AgentPanel.svelte';
 	import SentimentHeatmap from '$lib/components/SentimentHeatmap.svelte';
 	import BacktestReport from '$lib/components/BacktestReport.svelte';
+	import CoalitionExplorer from '$lib/components/CoalitionExplorer.svelte';
+	import { Upload, Download, FileText } from 'lucide-svelte';
+
 
 
 	import type { AgentNode, AgentLink } from '$lib/components/ForceGraph.svelte';
@@ -54,6 +57,9 @@ Key provisions:
 	let isGeneratingReport = $state(false);
 	let backtestAnalysis = $state<any>(null);
 	let isBacktest = $state(false);
+	let coalitions = $state<any[]>([]);
+	let isIngesting = $state(false);
+
 
 
 
@@ -77,7 +83,39 @@ Key provisions:
 		}
 	}
 
+	async function handleIngestFile(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const file = target.files?.[0];
+		if (!file) return;
+
+		isIngesting = true;
+		error = null;
+		const formData = new FormData();
+		formData.append('file', file);
+
+		try {
+			const res = await fetch(`${API_URL}/api/simulations/ingest`, {
+				method: 'POST',
+				body: formData
+			});
+			if (!res.ok) throw new Error('Failed to parse document');
+			const data = await res.json();
+			documentText = data.text;
+			if (!title) title = data.filename.split('.')[0];
+		} catch (e: any) {
+			error = e.message;
+		} finally {
+			isIngesting = false;
+		}
+	}
+
+	function handleDownloadJSON() {
+		if (!simId) return;
+		window.open(`${API_URL}/api/simulations/${simId}/export`, '_blank');
+	}
+
 	async function handleCreateSimulation() {
+
 		phase = 'drafting';
 		error = null;
 		isBacktest = false;
@@ -259,11 +297,12 @@ Key provisions:
 		if (!simId) return;
 		if (isBacktest && !backtestAnalysis) fetchBacktestResults();
 		try {
-
-			const res = await fetch(`${API_URL}/api/simulations/${simId}/report/heatmap`);
-			if (res.ok) {
-				heatmapData = await res.json();
-			}
+			const [heatRes, coalRes] = await Promise.all([
+				fetch(`${API_URL}/api/simulations/${simId}/report/heatmap`),
+				fetch(`${API_URL}/api/simulations/${simId}/report/coalitions`)
+			]);
+			if (heatRes.ok) heatmapData = await heatRes.json();
+			if (coalRes.ok) coalitions = await coalRes.json();
 		} catch (e) {
 			console.error(e);
 		}
@@ -368,9 +407,20 @@ Key provisions:
 						rows={10}
 						placeholder="Paste your policy document here..."
 						class="w-full rounded-xl px-4 py-3 text-sm text-white resize-none font-mono transition-all"
-						style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); outline: none;"
+						style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); outline: none; min-height: 200px; resize: none;"
 					></textarea>
 				</div>
+
+				<div class="flex items-center gap-3">
+					<label class="flex-1 cursor-pointer">
+						<div class="w-full flex items-center justify-center gap-2 py-3 border border-white/10 hover:border-brand/30 rounded-xl bg-white/5 transition-all">
+							<Upload size={14} class={isIngesting ? 'animate-bounce' : ''} />
+							<span class="text-[11px] font-bold uppercase tracking-widest">{isIngesting ? 'Reading...' : 'Upload PDF/DOCX'}</span>
+						</div>
+						<input type="file" class="hidden" accept=".pdf,.docx,.txt" onchange={handleIngestFile} disabled={phase !== 'idle' || isIngesting} />
+					</label>
+				</div>
+
 
 				<div class="grid grid-cols-2 gap-4">
 					<div>
@@ -551,6 +601,7 @@ Key provisions:
 							{:else if log.type === 'error'}
 								<p class="text-sm" style="color: #ff6b6b;">⚠️ {log.error}</p>
 							{/if}
+
 						</div>
 					{/each}
 				</div>
@@ -565,9 +616,8 @@ Key provisions:
 					</p>
 				</div>
 			{/if}
-
-		<!-- Prediction Report Tab -->
 		{:else if activeTab === 'report'}
+
 			<div class="space-y-6">
 				<!-- Historical Comparison (If Backtest) -->
 				{#if isBacktest}
@@ -581,42 +631,47 @@ Key provisions:
 				{/if}
 
 				<!-- Executive Brief Section -->
-
 				<div class="glass-card p-6">
 					<div class="flex items-center justify-between mb-6">
 						<div class="flex items-center gap-2">
 							<span class="text-xl">📄</span>
-							<h3 class="text-xs font-bold uppercase tracking-widest" style="color: #51cf66;">Executive Prediction Brief</h3>
+							<h3 class="text-xs font-bold uppercase tracking-widest text-brand">Institutional Prediction Report</h3>
 						</div>
-						
-						{#if briefSummary}
+						<div class="flex items-center gap-2">
+							<button 
+								onclick={handleDownloadJSON}
+								class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 hover:border-white/20 transition-all text-[10px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100"
+							>
+								<Download size={12} /> JSON
+							</button>
 							<button 
 								onclick={handleDownloadPDF}
-								class="px-4 py-2 rounded-lg text-xs font-bold border border-white/10 hover:bg-white/5 transition-all flex items-center gap-2"
+								class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand/10 border border-brand/20 hover:bg-brand/20 transition-all text-[10px] font-bold uppercase tracking-widest text-brand"
 							>
-								📥 Download PDF Report
+								<Download size={12} /> PDF Report
 							</button>
-						{/if}
+						</div>
 					</div>
-
+					
 					{#if briefSummary}
-						<div class="prose prose-sm prose-invert max-w-none">
-							{#each briefSummary.split('\n\n') as paragraph}
-								<p class="text-sm leading-relaxed text-white/80 mb-4">{paragraph}</p>
-							{/each}
+						<div class="prose prose-invert prose-sm max-w-none text-white/50 leading-relaxed italic text-[13px]">
+							{briefSummary}
 						</div>
 					{:else}
-						<div class="py-12 text-center">
-							<p class="text-sm text-white/40 mb-6">Simulation concluded. Analysis ready for synthesis.</p>
-							<button 
-								onclick={handleGenerateBrief}
-								disabled={isGeneratingReport}
-								class="px-8 py-3 rounded-xl bg-brand font-bold text-black uppercase tracking-widest text-xs hover:scale-105 transition-all disabled:opacity-50"
-							>
-								{isGeneratingReport ? 'Synthesizing...' : '🪄 Generate Executive Brief'}
-							</button>
-						</div>
+						<button 
+							onclick={handleGenerateBrief}
+							disabled={isGeneratingReport}
+							class="w-full py-12 border-2 border-dashed border-white/5 rounded-2xl hover:border-brand/20 hover:bg-brand/5 transition-all text-sm text-white/20"
+						>
+							{isGeneratingReport ? 'Synthesizing executive brief...' : 'Click to Generate Executive Summary'}
+						</button>
 					{/if}
+
+				</div>
+
+				<!-- Coalition Explorer (New v1.0 Polish) -->
+				<div class="glass-card p-6">
+					<CoalitionExplorer {coalitions} />
 				</div>
 
 				<!-- Demographic Heatmap Section -->
