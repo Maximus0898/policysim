@@ -86,4 +86,5 @@ uv run python scripts/test_runner.py
 ```
 
 ## 📜 License
-Internal Institutional Use Only. Developed by Google DeepMind (Advanced Agentic Coding).
+MIT License. Copyright (c) 2026 PolicySim Contributors.
+
