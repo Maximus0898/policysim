@@ -9,6 +9,7 @@
 		type: 'round_update' | 'completion' | 'error';
 		round_number?: number;
 		synthesis?: string;
+		injected_event?: string;
 		message?: string;
 		error?: string;
 	}
@@ -40,6 +41,9 @@ Key provisions:
 	let graphNodes = $state<AgentNode[]>([]);
 	let graphLinks = $state<AgentLink[]>([]);
 	let selectedAgentId = $state<number | null>(null);
+	let injectionText = $state('');
+	let isInjecting = $state(false);
+
 
 	const API_URL = env.PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -163,6 +167,28 @@ Key provisions:
 			return JSON.parse(raw) as SynthesisData;
 		} catch {
 			return { narrative_summary: raw };
+		}
+	}
+
+	async function handleInjectEvent() {
+		if (!simId || !injectionText.trim()) return;
+		isInjecting = true;
+
+		try {
+			const res = await fetch(`${API_URL}/api/simulations/${simId}/inject`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ event_text: injectionText })
+			});
+			if (res.ok) {
+				injectionText = '';
+			} else {
+				throw new Error('Injection failed');
+			}
+		} catch (e: any) {
+			alert(e.message);
+		} finally {
+			isInjecting = false;
 		}
 	}
 
@@ -302,6 +328,32 @@ Key provisions:
 						&bull; <span>{graphLinks.length} links</span>
 					{/if}
 				</div>
+
+				<!-- God-Mode Intervention -->
+				<div class="mt-8 pt-8 space-y-4" style="border-top: 1px solid rgba(255,255,255,0.05);">
+					<div class="flex items-center gap-2 mb-2">
+						<span class="text-lg">🕹️</span>
+						<h3 class="text-xs font-bold uppercase tracking-widest" style="color: #00f2fe;">God-Mode: Intervene</h3>
+					</div>
+					<p class="text-[11px]" style="color: rgba(255,255,255,0.4);">Inject a global event to steer the simulation narrative. Queues for the next round.</p>
+					
+					<textarea
+						bind:value={injectionText}
+						placeholder="E.g. The opposition leader calls for a general strike..."
+						rows={3}
+						class="w-full rounded-xl px-4 py-3 text-sm text-white resize-none transition-all"
+						style="background: rgba(0,242,254,0.03); border: 1px solid rgba(0,242,254,0.15); outline: none;"
+					></textarea>
+					
+					<button 
+						onclick={handleInjectEvent}
+						disabled={isInjecting || !injectionText.trim()}
+						class="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all {injectionText.trim() ? 'bg-brand text-black' : 'opacity-30'}"
+						style="background: {injectionText.trim() ? '#00f2fe' : 'rgba(255,255,255,0.1)'}; color: {injectionText.trim() ? '#000' : 'white'};"
+					>
+						{isInjecting ? 'Processing...' : '⚡ Fire Event'}
+					</button>
+				</div>
 			{/if}
 
 			{#if error}
@@ -375,7 +427,12 @@ Key provisions:
 										</div>
 										<span class="text-xs font-bold uppercase tracking-widest" style="color: rgba(255,255,255,0.4);">Round {log.round_number}</span>
 									</div>
-									<span class="text-[10px]" style="color: rgba(255,255,255,0.2);">✓ committed</span>
+									<div class="flex items-center gap-2">
+										{#if log.injected_event}
+											<span class="text-xs px-2 py-0.5 rounded bg-brand/10 border border-brand/20 text-brand" title="User Intervention: {log.injected_event}" style="color: #00f2fe;">🕹️ Intervention</span>
+										{/if}
+										<span class="text-[10px]" style="color: rgba(255,255,255,0.2);">✓ committed</span>
+									</div>
 								</div>
 								<p class="text-sm leading-relaxed mb-3" style="color: rgba(255,255,255,0.8);">{synth.narrative_summary}</p>
 								{#if synth.key_events && synth.key_events.length > 0}

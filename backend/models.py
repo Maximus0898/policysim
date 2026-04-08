@@ -22,6 +22,8 @@ class SimulationBase(SQLModel):
     total_rounds: int = 25
     agent_count: int = 40
     scenario_description: str = ""
+    pending_event: Optional[str] = None
+
 
 
 class Simulation(SimulationBase, table=True):

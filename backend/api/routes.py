@@ -22,6 +22,10 @@ class DraftSimulationRequest(BaseModel):
 class StartSimulationRequest(BaseModel):
     rounds: int = 5
 
+class InjectEventRequest(BaseModel):
+    event_text: str
+
+
 @router.post("/")
 async def create_draft_simulation(req: DraftSimulationRequest, session: AsyncSession = Depends(get_session)):
     """Creates a new simulation world from the policy document."""
@@ -85,6 +89,23 @@ async def stream_simulation(simulation_id: int, request: Request):
     """SSE Endpoint. Yields round updates."""
     generator = simulation_manager.event_generator(simulation_id)
     return EventSourceResponse(generator)
+
+
+@router.post("/{simulation_id}/inject")
+async def inject_event(simulation_id: int, req: InjectEventRequest, session: AsyncSession = Depends(get_session)):
+    """Queues a global event to be processed in the next simulation round."""
+    result = await session.execute(
+        select(Simulation).where(Simulation.id == simulation_id)
+    )
+    sim = result.scalar_one_or_none()
+    if not sim:
+        return {"error": "Simulation not found"}, 404
+        
+    sim.pending_event = req.event_text
+    await session.commit()
+    
+    return {"status": "event_queued", "event": req.event_text}
+
 
 
 @router.get("/{simulation_id}/agents")
