@@ -7,6 +7,7 @@ from backend.models import Simulation, Round, AgentRoundResult
 from backend.llm.factory import get_provider
 from backend.llm.base import LLMMessage
 import os
+import pathlib
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class Backtester:
         }
 
     def _load_scenario(self, scenario_id: str) -> Optional[Dict[str, Any]]:
-        path = f"backend/data/scenarios/{scenario_id}.json"
+        path = pathlib.Path(__file__).parent.parent / "data" / "scenarios" / f"{scenario_id}.json"
         if not os.path.exists(path):
             return None
         with open(path, "r", encoding="utf-8") as f:

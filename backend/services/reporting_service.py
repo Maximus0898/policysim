@@ -58,6 +58,83 @@ class ReportingService:
             
         return formatted
 
+    async def get_coalitions(self, simulation_id: int) -> List[Dict[str, Any]]:
+        """
+        Clusters agents at final round into emerging blocs and opposition coalitions
+        based on stance ranges: oppose (<-0.33), neutral (-0.33 to 0.33), support (>0.33).
+        """
+        # Fetch the simulation to get the total_rounds or find the latest round
+        rounds_res = await self.session.execute(
+            select(Round).where(Round.simulation_id == simulation_id).order_by(Round.round_number.desc()).limit(1)
+        )
+        latest_round = rounds_res.scalar_one_or_none()
+        if not latest_round:
+            return []
+
+        # Find agents and their outcomes for this latest round
+        result = await self.session.execute(
+            select(Agent, AgentRoundResult.sentiment)
+            .join(AgentRoundResult, Agent.id == AgentRoundResult.agent_id)
+            .where(
+                Agent.simulation_id == simulation_id,
+                AgentRoundResult.round_id == latest_round.id
+            )
+        )
+        
+        rows = result.all()
+        if not rows:
+            return []
+
+        brackets = {"oppose": [], "neutral": [], "support": []}
+        
+        for agent, sentiment in rows:
+            if sentiment < -0.33:
+                brackets["oppose"].append((agent, sentiment))
+            elif sentiment > 0.33:
+                brackets["support"].append((agent, sentiment))
+            else:
+                brackets["neutral"].append((agent, sentiment))
+
+        coalitions = []
+        for bracket_name, members in brackets.items():
+            if not members:
+                continue
+            
+            # Sub-group by archetype
+            arch_groups = {}
+            for agent, sentiment in members:
+                arch = agent.archetype
+                if arch not in arch_groups:
+                    arch_groups[arch] = []
+                arch_groups[arch].append({"name": agent.name, "stance": sentiment})
+
+            avg_stance = sum(m[1] for m in members) / len(members)
+            
+            # Format the output for the frontend
+            labels = {
+                "oppose": "Opposition Bloc",
+                "neutral": "Undecided/Neutral Alignments",
+                "support": "Support Coalition"
+            }
+
+            coalition_members = []
+            for m, _ in members:
+                coalition_members.append({
+                    "name": m.name,
+                    "archetype": m.archetype
+                })
+
+            coalitions.append({
+                "label": labels[bracket_name],
+                "avg_stance": round(avg_stance, 2),
+                "members": coalition_members,
+                "size": len(members)
+            })
+
+        # Sort by strength of stance
+        coalitions.sort(key=lambda c: c["avg_stance"])
+        return coalitions
+
     async def synthesize_executive_brief(self, simulation_id: int) -> str:
         """
         Generates a 3-paragraph executive summary of the simulation rounds.

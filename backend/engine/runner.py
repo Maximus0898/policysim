@@ -24,8 +24,7 @@ class SimulationRunner:
             agent_memories = {}
 
         
-        simulation.current_round += 1
-        round_num = simulation.current_round
+        round_num = simulation.current_round + 1
         region_profile = get_default_region() # Mocking DB relation for mvp
         
         # 1. Event Setup
@@ -69,7 +68,8 @@ class SimulationRunner:
         key_action_map = {act.agent_name: act for act in key_actions}
         for a in key_figures:
             if a.name in key_action_map:
-                a.current_stance = key_action_map[a.name].new_stance
+                new_val = key_action_map[a.name].new_stance
+                a.current_stance = max(-1.0, min(1.0, new_val))
 
         # 3. Mass Agent Turn (Batched)
         mass_agents = [a for a in agents if not a.is_key_figure]
@@ -107,10 +107,11 @@ class SimulationRunner:
                 mass_responses.extend(r.reactions)
 
         # Update Mass Agents locally
-        reaction_map = {r.agent_id: r for r in mass_responses}
+        reaction_map = {int(r.agent_id): r for r in mass_responses}
         for a in mass_agents:
-            if str(a.id) in reaction_map:  # Convert ID to string for safety
-                a.current_stance = reaction_map[str(a.id)].new_stance
+            if a.id in reaction_map:
+                new_val = reaction_map[a.id].new_stance
+                a.current_stance = max(-1.0, min(1.0, new_val))
 
         # 4. Metrics Calculation
         metrics = calculate_metrics(agents, region_profile)

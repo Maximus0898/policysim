@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field, Relationship, JSON
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 class SimulationStatus(str, Enum):
@@ -28,7 +28,7 @@ class SimulationBase(SQLModel):
 
 class Simulation(SimulationBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     # Relationships
     agents: List["Agent"] = Relationship(back_populates="simulation")
@@ -67,7 +67,7 @@ class RoundBase(SQLModel):
 class Round(RoundBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     simulation_id: int = Field(foreign_key="simulation.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     simulation: Simulation = Relationship(back_populates="rounds")
     agent_results: List["AgentRoundResult"] = Relationship(back_populates="round")

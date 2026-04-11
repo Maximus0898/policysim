@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Request, Response, UploadFile, File, HTT
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sse_starlette.sse import EventSourceResponse
+import pathlib
 
 
 from backend.database import get_session, engine
@@ -83,9 +84,9 @@ async def create_draft_simulation(req: DraftSimulationRequest, session: AsyncSes
 async def create_backtest_simulation(scenario_id: str, session: AsyncSession = Depends(get_session)):
     """Creates a simulation pre-configured with historical scenario data."""
     import os
-    path = f"backend/data/scenarios/{scenario_id}.json"
+    path = pathlib.Path(__file__).parent.parent / "data" / "scenarios" / f"{scenario_id}.json"
     if not os.path.exists(path):
-        return {"error": "Scenario not found"}, 404
+        raise HTTPException(status_code=404, detail="Scenario not found")
         
     with open(path, "r", encoding="utf-8") as f:
         scenario = json.load(f)
@@ -161,7 +162,7 @@ async def inject_event(simulation_id: int, req: InjectEventRequest, session: Asy
     )
     sim = result.scalar_one_or_none()
     if not sim:
-        return {"error": "Simulation not found"}, 404
+        raise HTTPException(status_code=404, detail="Simulation not found")
         
     sim.pending_event = req.event_text
     await session.commit()
@@ -215,7 +216,7 @@ async def get_backtest_results(simulation_id: int, session: AsyncSession = Depen
     result = await session.execute(select(Simulation).where(Simulation.id == simulation_id))
     sim = result.scalar_one_or_none()
     if not sim or not sim.scenario_description or not sim.scenario_description.startswith("BACKTEST:"):
-        return {"error": "Not a backtest simulation or not found."}, 400
+        raise HTTPException(status_code=400, detail="Not a backtest simulation or not found.")
         
     scenario_id = sim.scenario_description.split(":")[1]
     tester = Backtester(session)

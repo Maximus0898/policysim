@@ -84,17 +84,25 @@ async def run_simulation_round(session: AsyncSession, simulation_id: int, inject
     )
 
     # 6. Apply to Session & Commit
-    # Add new records
-    session.add(round_record)
-    
-    # The models are attached so changes to simulation and agents will be tracked,
-    # but we add the new AgentRoundResult items
-    for ar in agent_results:
-        # Link relations nicely
-        ar.round = round_record
-        session.add(ar)
+    try:
+        # Add new records
+        session.add(round_record)
         
-    await session.commit()
+        # The models are attached so changes to simulation and agents will be tracked,
+        # but we add the new AgentRoundResult items
+        for ar in agent_results:
+            # Link relations nicely
+            ar.round = round_record
+            session.add(ar)
+            
+        # Update simulation.current_round safely
+        sim_updated.current_round = round_record.round_number
+        
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+        
     logger.info(f"Committed Round {sim_updated.current_round} for Simulation {simulation_id}.")
 
     return round_record
