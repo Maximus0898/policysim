@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sse_starlette.sse import EventSourceResponse
 import pathlib
+import re
 
 
 from backend.database import get_session, engine
@@ -83,6 +84,8 @@ async def create_draft_simulation(req: DraftSimulationRequest, session: AsyncSes
 @router.post("/backtest/{scenario_id}")
 async def create_backtest_simulation(scenario_id: str, session: AsyncSession = Depends(get_session)):
     """Creates a simulation pre-configured with historical scenario data."""
+    if not re.match(r'^[a-z0-9_-]+$', scenario_id):
+        raise HTTPException(status_code=400, detail="Invalid scenario ID")
     import os
     path = pathlib.Path(__file__).parent.parent / "data" / "scenarios" / f"{scenario_id}.json"
     if not os.path.exists(path):
@@ -227,11 +230,18 @@ async def get_backtest_results(simulation_id: int, session: AsyncSession = Depen
 @router.post("/ingest")
 async def ingest_document(file: UploadFile = File(...)):
     """Extracts plain text from uploaded PDF or DOCX files."""
+    if file.size and file.size > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large. Maximum 5 MB.")
     from backend.engine.parsers import extract_text_from_file
     content = await file.read()
-    text = extract_text_from_file(content, file.filename)
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large. Maximum 5 MB.")
+    try:
+        text = extract_text_from_file(content, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not text:
-        return {"error": "Unsupported file type or failed to parse."}, 400
+        raise HTTPException(status_code=400, detail="Unsupported file type or failed to parse.")
     return {"text": text, "filename": file.filename}
 
 

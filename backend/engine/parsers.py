@@ -3,6 +3,7 @@ import logging
 import pdfplumber
 from docx import Document
 from typing import Optional
+import magic
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,13 @@ def extract_text_from_file(file_bytes: bytes, filename: str) -> Optional[str]:
     """
     ext = filename.split(".")[-1].lower()
     
+    mime = magic.from_buffer(file_bytes, mime=True)
+    if ext == "pdf" and mime != "application/pdf":
+        raise ValueError("Invalid file content: declared as PDF but content differs.")
+    elif ext == "docx" and not mime.startswith("application/"): 
+        # python-magic can be finicky with docx, but it usually starts with application/
+        raise ValueError("Invalid file content: declared as DOCX but content differs.")
+        
     try:
         if ext == "pdf":
             return _extract_from_pdf(file_bytes)

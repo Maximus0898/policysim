@@ -1,5 +1,6 @@
+import openai
 from openai import AsyncOpenAI
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 from typing import List, Dict, Optional, Any
 from backend.llm.base import LLMProvider, LLMMessage, LLMResponse
 from backend.config import settings
@@ -9,10 +10,13 @@ class OpenAIProvider(LLMProvider):
         self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self.default_model = "gpt-4o"
 
+    def _is_retryable(self, exception):
+        return isinstance(exception, (openai.APIConnectionError, openai.RateLimitError))
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type(Exception)
+        retry=retry_if_exception(lambda e: isinstance(e, (openai.APIConnectionError, openai.RateLimitError)))
     )
     async def chat(
         self, 

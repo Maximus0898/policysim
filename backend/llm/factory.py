@@ -14,9 +14,15 @@ class ProviderFactory:
             return cls._instances[provider_name]
 
         if provider_name == "anthropic":
-            provider = AnthropicProvider(api_key=settings.anthropic_api_key or "")
+            key = settings.anthropic_api_key or ""
+            if not key:
+                raise ValueError("ANTHROPIC_API_KEY is required but not set or empty.")
+            provider = AnthropicProvider(api_key=key)
         elif provider_name == "openai":
-            provider = OpenAIProvider(api_key=settings.openai_api_key or "")
+            key = settings.openai_api_key or ""
+            if not key:
+                raise ValueError("OPENAI_API_KEY is required but not set or empty.")
+            provider = OpenAIProvider(api_key=key)
         elif provider_name == "ollama":
             # Use OpenAI compatible endpoint for Ollama
             provider = OpenAIProvider(

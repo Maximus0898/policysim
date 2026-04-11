@@ -1,5 +1,6 @@
+import anthropic
 from anthropic import AsyncAnthropic
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 from typing import List, Dict, Optional
 from backend.llm.base import LLMProvider, LLMMessage, LLMResponse
 from backend.config import settings
@@ -9,10 +10,13 @@ class AnthropicProvider(LLMProvider):
         self.client = AsyncAnthropic(api_key=api_key)
         self.default_model = "claude-3-5-sonnet-20241022"
 
+    def _is_retryable(self, exception):
+        return isinstance(exception, (anthropic.APIConnectionError, anthropic.RateLimitError))
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type(Exception)
+        retry=retry_if_exception(lambda e: isinstance(e, (anthropic.APIConnectionError, anthropic.RateLimitError)))
     )
     async def chat(
         self, 
