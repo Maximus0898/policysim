@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from backend.models import Simulation, Agent, Round, AgentRoundResult
@@ -7,7 +8,7 @@ from backend.llm.factory import get_provider
 
 logger = logging.getLogger(__name__)
 
-async def run_simulation_round(session: AsyncSession, simulation_id: int, injected_event: str = None) -> Round:
+async def run_simulation_round(session: AsyncSession, simulation_id: int, injected_event: Optional[str] = None) -> Round:
     """
     Executes a single simulation round with database persistence.
     Fetches the context, runs the AI engine, and saves the output natively.

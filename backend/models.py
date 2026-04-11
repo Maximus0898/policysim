@@ -48,7 +48,6 @@ class AgentBase(SQLModel):
     personality_traits: str = "" 
     is_key_figure: bool = False
     region_context: str = ""
-    regional_data: Dict[str, Any] = Field(default={}, sa_type=JSON)
 
 
 
@@ -91,4 +90,17 @@ class AgentRelationship(SQLModel, table=True):
     target_agent_id: int = Field(foreign_key="agent.id")
     relationship_type: str = "influences"  # influences, opposes, supports, follows
     strength: float = 0.5  # 0.0 to 1.0
+    
+    source_agent: Agent = Relationship(
+        sa_relationship_kwargs={
+            "primaryjoin": "AgentRelationship.source_agent_id==Agent.id",
+            "foreign_keys": "AgentRelationship.source_agent_id"
+        }
+    )
+    target_agent: Agent = Relationship(
+        sa_relationship_kwargs={
+            "primaryjoin": "AgentRelationship.target_agent_id==Agent.id",
+            "foreign_keys": "AgentRelationship.target_agent_id"
+        }
+    )
 

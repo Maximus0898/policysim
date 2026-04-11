@@ -23,14 +23,6 @@
 				<LayoutDashboard size={16} />
 				Dashboard
 			</a>
-			<a href="/simulations" class="text-sm font-medium text-white/60 hover:text-white transition-colors flex items-center gap-2">
-				<Database size={16} />
-				Simulations
-			</a>
-			<a href="/about" class="text-sm font-medium text-white/60 hover:text-white transition-colors flex items-center gap-2">
-				<Info size={16} />
-				How it Works
-			</a>
 		</nav>
 
 		<div class="flex items-center gap-4">

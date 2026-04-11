@@ -1,5 +1,6 @@
 import math
 import statistics
+import pandas as pd
 from typing import List, Dict
 from collections import defaultdict
 from backend.models import Agent
@@ -48,23 +49,4 @@ def calculate_metrics(agents: List[Agent], region: RegionProfile) -> dict:
         "protest_probability": round(protest_prob, 4)
     }
 
-def calculate_archetype_metrics(agents: List[Agent]) -> Dict[str, dict]:
-    """
-    Groups agents by archetype and returns average sentiment for each demographic slice.
-    """
-    if not agents:
-        return {}
-    
-    import pandas as pd
-    df = pd.DataFrame([
-        {"archetype": a.archetype, "stance": a.current_stance} 
-        for a in agents
-    ])
-    
-    summary = df.groupby("archetype")["stance"].mean().to_dict()
-    
-    return {
-        arch: {"avg_sentiment": round(val, 4)} 
-        for arch, val in summary.items()
-    }
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import * as d3 from 'd3';
 
     let { analysis = null } = $props();
@@ -10,8 +9,8 @@
     const score = $derived(analysis?.total_score || 0);
     const dashArray = $derived((score / 100) * 283); // 283 is approx circumference of circle r=45
 
-    onMount(() => {
-        if (analysis && analysis.historical_data) {
+    $effect(() => {
+        if (analysis?.historical_data) {
             drawChart();
         }
     });

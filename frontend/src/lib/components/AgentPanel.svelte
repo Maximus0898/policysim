@@ -1,5 +1,6 @@
 <script lang="ts">
-	const API_URL = 'http://localhost:8000';
+	import { env } from '$env/dynamic/public';
+	const API_URL = env.PUBLIC_API_URL || 'http://localhost:8000';
 
 	let { agentId = null, simulationId }: {
 		agentId: number | null;

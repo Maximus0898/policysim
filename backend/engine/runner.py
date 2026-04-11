@@ -126,7 +126,7 @@ class SimulationRunner:
                 data = json.loads(res.content)
                 data["avg_sentiment"] = metrics["avg_sentiment"] # Inject the calculated metric
                 return RoundSynthesis(**data)
-            except:
+            except Exception:
                 return RoundSynthesis(narrative_summary="Summary generation failed.", key_events=["Engine error"], avg_sentiment=metrics["avg_sentiment"])
 
                 
@@ -146,7 +146,6 @@ class SimulationRunner:
             # We proxy emotional reaction if missing since it's hard to track purely, just mocking sentiment slightly below
             agent_results.append(AgentRoundResult(
                 agent_id=a.id or 0,
-                round_id=0, # Filled in DB layer
                 stance_value=a.current_stance,
                 sentiment=a.current_stance
             ))

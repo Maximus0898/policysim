@@ -74,15 +74,15 @@ The dashboard will be available at `http://localhost:5173`.
 | :--- | :--- |
 | `LLM_PROVIDER` | `anthropic`, `openai`, or `ollama`. |
 | `ANTHROPIC_API_KEY` | Required for Claude models. |
-| `OPENAI_API_BASE` | Set to `http://localhost:1234/v1` for LM Studio. |
-| `DATABASE_URL` | Defaults to `sqlite:///./policysim.db`. |
+| `OPENAI_API_KEY` | Required for OpenAI models. |
+| `OLLAMA_BASE_URL` | Set to `http://localhost:11434` for Ollama. |
+| `DATABASE_URL` | Defaults to `sqlite+aiosqlite:///policysim.db`. |
 
 ---
 
 ## 🧪 Running Tests
 ```bash
-cd backend
-uv run python scripts/test_runner.py
+uv run pytest
 ```
 
 ## 📜 License

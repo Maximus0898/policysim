@@ -8,6 +8,7 @@ from backend.llm.factory import get_provider
 from backend.llm.base import LLMMessage
 import os
 import pathlib
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +82,12 @@ class Backtester:
             # In MVP we can pull this from the Round.synthesis_text if we stored it there, 
             # or calculate fresh. Let's assume we can get it.
             try:
-                synth = json.loads(sim_r.synthesis_text)
-                sim_sentiment = synth.get("avg_sentiment", 0.0) # We need to ensure runner stores this
-            except:
+                if sim_r.synthesis_text:
+                    synth = json.loads(sim_r.synthesis_text)
+                    sim_sentiment = synth.get("avg_sentiment", 0.0) # We need to ensure runner stores this
+                else:
+                    sim_sentiment = 0.0
+            except Exception:
                 sim_sentiment = 0.0
 
             hist_sentiment = marker["sentiment"]
@@ -145,7 +149,7 @@ class Backtester:
             scores = [c["score"] for c in data["criteria"]]
             avg_score = sum(scores) / len(scores)
             return avg_score, data["criteria"]
-        except:
+        except Exception:
             return 0.0, []
 
     def _generate_divergence_log(self, sim_rounds: List[Round], markers: List[Dict]) -> List[str]:
@@ -160,8 +164,11 @@ class Backtester:
             
             # Simple heuristic for divergence: Sentiment delta > 0.4
             try:
-                sim_s = json.loads(sim_r.synthesis_text).get("avg_sentiment", 0.0)
-            except: sim_s = 0.0
+                if sim_r.synthesis_text:
+                    sim_s = json.loads(sim_r.synthesis_text).get("avg_sentiment", 0.0)
+                else:
+                    sim_s = 0.0
+            except Exception: sim_s = 0.0
             
             hist_s = hist_m["sentiment"]
             if abs(sim_s - hist_s) > 0.4:

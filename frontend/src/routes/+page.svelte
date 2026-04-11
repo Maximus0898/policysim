@@ -55,9 +55,26 @@ Key provisions:
 	let heatmapData = $state<{ archetype: string, values: number[] }[]>([]);
 	let briefSummary = $state<string | null>(null);
 	let isGeneratingReport = $state(false);
-	let backtestAnalysis = $state<any>(null);
+	interface BacktestAnalysis {
+		total_score: number;
+		outcome_score: number;
+		trajectory_score: number;
+		outcome_details: any[];
+		trajectory_details: any[];
+		divergence_log: string[];
+		historical_data: any[];
+	}
+
+	interface Coalition {
+		label: string;
+		avg_stance: number;
+		members: {name: string; archetype: string}[];
+		size: number;
+	}
+
+	let backtestAnalysis = $state<BacktestAnalysis | null>(null);
 	let isBacktest = $state(false);
-	let coalitions = $state<any[]>([]);
+	let coalitions = $state<Coalition[]>([]);
 	let isIngesting = $state(false);
 
 
@@ -100,7 +117,7 @@ Key provisions:
 			});
 			if (!res.ok) throw new Error('Failed to parse document');
 			const data = await res.json();
-			documentText = data.text;
+			policyText = data.text;
 			if (!title) title = data.filename.split('.')[0];
 		} catch (e: any) {
 			error = e.message;
@@ -226,10 +243,9 @@ Key provisions:
 
 		sse.onerror = () => {
 			if (isStreaming) {
-				error = 'Stream connection lost.';
-				phase = 'error';
-				isStreaming = false;
+				console.log("SSE error, attempting to reconnect...");
 				sse.close();
+				setTimeout(() => connectToStream(), 2000);
 			}
 		};
 	}
