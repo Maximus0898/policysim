@@ -141,7 +141,10 @@ class ReportingService:
         """
         # Fetch simulation and all rounds
         sim_res = await self.session.execute(select(Simulation).where(Simulation.id == simulation_id))
-        simulation = sim_res.scalar_one()
+        simulation = sim_res.scalar_one_or_none()
+        if not simulation:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Simulation not found")
         
         rounds_res = await self.session.execute(
             select(Round).where(Round.simulation_id == simulation_id).order_by(Round.round_number)
@@ -193,7 +196,10 @@ class ReportingService:
         
         # 1. Fetch Data
         sim_res = await self.session.execute(select(Simulation).where(Simulation.id == simulation_id))
-        simulation = sim_res.scalar_one()
+        simulation = sim_res.scalar_one_or_none()
+        if not simulation:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Simulation not found")
         
         agents_res = await self.session.execute(select(Agent).where(Agent.simulation_id == simulation_id))
         agents = list(agents_res.scalars().all())

@@ -74,7 +74,8 @@ class WorldBuilder:
 
     async def draft_simulation(self, title: str, document_text: str, region_preset: str) -> tuple[Simulation, List[Agent], List[AgentRelationshipItem]]:
         # 1. Load Region
-        region = get_default_region() # Currently hardcoded to mock
+        from backend.regions.base import get_region
+        region = get_region(region_preset)
 
         # 2. Extract Policy
         policy_summary = await self.extract_policy(document_text)

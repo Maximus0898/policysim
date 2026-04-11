@@ -143,9 +143,7 @@ async def create_backtest_simulation(scenario_id: str, session: AsyncSession = D
 @router.post("/{simulation_id}/start")
 async def start_simulation(simulation_id: int, req: StartSimulationRequest):
     """Kicks off the background task to execute rounds sequentially."""
-    from sqlalchemy.orm import sessionmaker
-    AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+    from backend.database import AsyncSessionLocal
     await simulation_manager.start_simulation_loop(AsyncSessionLocal, simulation_id, rounds=req.rounds)
     return {"status": "started", "simulation_id": simulation_id}
 
@@ -153,7 +151,8 @@ async def start_simulation(simulation_id: int, req: StartSimulationRequest):
 @router.get("/{simulation_id}/stream")
 async def stream_simulation(simulation_id: int, request: Request):
     """SSE Endpoint. Yields round updates."""
-    generator = simulation_manager.event_generator(simulation_id)
+    last_event_id = request.headers.get("Last-Event-ID")
+    generator = simulation_manager.event_generator(simulation_id, last_event_id)
     return EventSourceResponse(generator)
 
 

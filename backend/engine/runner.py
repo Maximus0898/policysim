@@ -25,7 +25,8 @@ class SimulationRunner:
 
         
         round_num = simulation.current_round + 1
-        region_profile = get_default_region() # Mocking DB relation for mvp
+        from backend.regions.base import get_region
+        region_profile = get_region(simulation.region_preset)
         
         # 1. Event Setup
         context_str = f"Round {round_num}. Policy: <user_data>{simulation.title}</user_data>."
@@ -132,8 +133,9 @@ class SimulationRunner:
         synthesis = await synthesize_round()
         
         # Compile Database Mock Objects
+        assert simulation.id is not None, "Simulation must be committed before creating round records"
         round_record = Round(
-            simulation_id=simulation.id or 0,
+            simulation_id=simulation.id,
             round_number=round_num,
             event_text=public_context,
             synthesis_text=json.dumps(synthesis.model_dump())

@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from collections import defaultdict
+from collections import defaultdict, deque
 from typing import AsyncGenerator
 from backend.services.simulation_service import run_simulation_round
 
@@ -10,6 +10,7 @@ class SimulationManager:
     def __init__(self):
         # Maps simulation_id -> list of active queues for connected clients
         self.active_subscriptions: dict[int, list[asyncio.Queue]] = defaultdict(list)
+        self.event_buffers: dict[int, deque] = defaultdict(lambda: deque(maxlen=200))
         # Prevent simultaneous runner execution for the same sim_id
         self.running_tasks: dict[int, asyncio.Task] = {}
 
@@ -26,38 +27,55 @@ class SimulationManager:
                 del self.active_subscriptions[simulation_id]
 
     async def publish(self, simulation_id: int, event_data: dict):
+        event_id = str(len(self.event_buffers[simulation_id]))
+        event_record = {"id": event_id, "data": event_data}
+        self.event_buffers[simulation_id].append(event_record)
+
         if simulation_id in self.active_subscriptions:
             dead_queues = []
             for queue in self.active_subscriptions[simulation_id]:
                 try:
-                    queue.put_nowait(event_data)
+                    queue.put_nowait(event_record)
                 except asyncio.QueueFull:
                     dead_queues.append(queue)
             
             for dq in dead_queues:
                 self.unsubscribe(simulation_id, dq)
 
-    async def event_generator(self, simulation_id: int) -> AsyncGenerator[dict, None]:
+    async def event_generator(self, simulation_id: int, last_event_id: str = None) -> AsyncGenerator[dict, None]:
         queue = self.subscribe(simulation_id)
         try:
             import json
+            buffer = self.event_buffers.get(simulation_id, [])
+            start_emitting = False if last_event_id else True
+            for ev in buffer:
+                if start_emitting:
+                    event_data = ev["data"]
+                    if event_data.get("type") == "completion":
+                        yield {"event": "message", "id": "end", "data": json.dumps(event_data)}
+                    else:
+                        yield {"event": "message", "id": ev["id"], "data": json.dumps(event_data)}
+                if ev["id"] == last_event_id:
+                    start_emitting = True
+
             while True:
                 # Wait for new data
-                data = await queue.get()
+                ev = await queue.get()
+                event_data = ev["data"]
                 
                 # Check for completion signal
-                if data.get("type") == "completion":
+                if event_data.get("type") == "completion":
                     yield {
                         "event": "message",
                         "id": "end",
-                        "data": json.dumps(data)
+                        "data": json.dumps(event_data)
                     }
                     break
                     
                 yield {
                     "event": "message",
-                    "id": str(data.get("round_number", "")),
-                    "data": json.dumps(data)
+                    "id": ev["id"],
+                    "data": json.dumps(event_data)
                 }
         except asyncio.CancelledError:
             logger.info(f"Client disconnected from Simulation {simulation_id}")
